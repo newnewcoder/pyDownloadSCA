@@ -1,4 +1,4 @@
-Download studio classroom video from GoodTV
+Download studio classroom video from studioclassroom
 
 ## Prerequisites
 
