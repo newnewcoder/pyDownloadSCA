@@ -12,7 +12,7 @@ import re, datetime, subprocess
 
 
 def main():
-    driver_path = './chromedriver' # mac
+    driver_path = './chromedriver' # get from https://chromedriver.storage.googleapis.com/index.html?path=2.42/
     url = 'http://m.studioclassroom.com/tv-programs.php?level=sc'
     page = urlopen(url)
 
@@ -63,7 +63,8 @@ def main():
     print('query string: {}'.format(query_str))
     
     # choice playlist by resolution
-    resolution = '256x144'
+    # 256x144 480x270 640x360 854x480 1280x720 1920x1080
+    resolution = '640x360'
     print('choice resolution: {}'.format(resolution))
 
     line = [l.decode('utf-8').strip() for l in playlist_list]
