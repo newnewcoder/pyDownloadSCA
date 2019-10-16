@@ -7,9 +7,9 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
-from urllib.request import urlopen
+from urllib.request import urlopen, urlretrieve
 import re, datetime, subprocess
-
+import time
 
 def main():
     driver_path = './chromedriver' # get from https://chromedriver.storage.googleapis.com/index.html?path=2.42/
@@ -18,7 +18,7 @@ def main():
 
     bs = BeautifulSoup(page, "html.parser")
 
-    iframe_src = bs.findAll('iframe', attrs={'src': re.compile('^(https://tv.line.me/embed/)')})[0]['src']
+    iframe_src = bs.findAll('iframe', attrs={'src': re.compile('^(https://www.linetv.tw/player/)')})[0]['src']
 
     # open website by selenium with chrome
     option = webdriver.ChromeOptions()
@@ -33,67 +33,35 @@ def main():
     # print(driver.title)
     
     try:
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'button[data-center-play-icon]')))
+        print('wait for advertisement countdown')
+        # wait for not allowed skip ad countdown
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[id="player_ima-countdown-div"]')))
+        el = driver.find_element(By.CSS_SELECTOR, 'div[id="player_ima-countdown-div"]')
+        if 'Advertisement' in el.text:
+            mi = el.text.split(' ')[-1].split(':')[0]
+            s = el.text.split(' ')[-1].split(':')[1]
+            waitfor = int(mi) * 60 + int(s)
+            print('wait {}s...'.format(waitfor))
+            time.sleep(waitfor)
     except TimeoutException:
-        print('timeout ....(stage 1)')
-    # move mouse pointer and click
-    action = ActionChains(driver)
-    el = driver.find_element(By.CSS_SELECTOR, 'button[data-center-play-icon]')
-    action.move_to_element(el)
-    action.pause(1)
-    action.click()
-    action.pause(1)
-    action.perform()
+        print('can not find advertisement countdown element')
 
     try:
-        # waitfor data-src
-        video = WebDriverWait(driver, 60*5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "video[id^='rmcPlayer'][data-src^='http']")))
-        m3u8_src = video.get_attribute("data-src")
-        print('playlist''s list: {}'.format(m3u8_src))
+        print('wait for video tag')
+        # wait for mp4 src
+        video = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "video[id='player_html5_api']")))
+        mp4_src = video.get_attribute("src")
+        print('get mp4 url: {}'.format(mp4_src))
     except TimeoutException:
-        print('timeout ....(stage 2)')
+        print('can not find video tag')
     
     # close browser
     driver.quit()
-    
-    query_str = m3u8_src.split('?')[1:][0]
-    new_m3u8_url = m3u8_src[:m3u8_src.replace('?'+query_str, '').rfind('/')]+"/{}?"+query_str
-    playlist_list = urlopen(m3u8_src)
-
-    print('query string: {}'.format(query_str))
-    
-    # choice playlist by resolution
-    # 256x144 480x270 640x360 854x480 1280x720 1920x1080
-    resolution = '640x360'
-    print('choice resolution: {}'.format(resolution))
-
-    line = [l.decode('utf-8').strip() for l in playlist_list]
-    resolution_key = [l for l in line if resolution in l][0]
-    index = [l for l in line].index(resolution_key) + 1
-    
-    # get playlist
-    playlist_url = new_m3u8_url.format(line[index])
-
-    print('playlist: {}'.format(m3u8_src))
-
-    playlist_txt = urlopen(playlist_url)
-
-    # get .ts file url
-    m3u8_file_name = playlist_url.split('?')[0].split('/')[-1]
-    ts_url = playlist_url.replace('/' + m3u8_file_name, '').replace('?' + query_str, '')
-    
-    # modify relative url to absolute url in playlist
-    with open('temp.m3u8', 'w') as file:
-        for line in playlist_txt:
-            txt = line.decode('utf-8').strip()
-            if not txt.startswith('#'):
-                txt = ts_url + '/' + txt
-            file.write(txt.replace('.ts', '.ts?' + query_str) + '\r\n')
-    # download and convert to mp4 by using ffmpeg
-    ffmpeg_command = 'ffmpeg -protocol_whitelist "file,http,https,tcp,tls" -y -i {} -c copy -bsf:a aac_adtstoasc {}.mp4'.format('temp.m3u8', datetime.datetime.today().strftime('%Y-%m-%d'))
-    process = subprocess.Popen(ffmpeg_command, shell=True)
-    process.wait()
-
+    if mp4_src:
+        urlretrieve(mp4_src, datetime.datetime.today().strftime('%Y-%m-%d') + '.mp4')
+        print('download completed')
+    else:
+        print('download failed')
 
 if __name__== "__main__":
     main()
