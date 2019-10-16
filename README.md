@@ -3,9 +3,8 @@ Download studio classroom video from studioclassroom
 ## Prerequisites
 
 1. installed python3
-2. installed ffmpeg
-3. installed chrome
-4. put chromedriver in project
+2. installed chrome
+3. put chromedriver in project
 
 ## How to use
 
